@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-c -Wall
+CFLAGS=-c -Wall -std=c++11
 
 all: mandelbrot
 
@@ -11,3 +11,7 @@ main.o: main.cpp
 
 clean:
 	rm *o mandelbrot
+
+run: all
+	./mandelbrot
+	gwenview mandel.ppm

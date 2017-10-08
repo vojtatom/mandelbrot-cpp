@@ -5,6 +5,7 @@
 #include <cmath>
 #include <random>
 #include <string>
+#include <thread>  
 
 using namespace std;
 #define BAR_SIZE 15
@@ -34,6 +35,7 @@ public:
 	void save(const char * file_name);
 	void save_buddha(const char * file_name);
 private:
+	void calculate_thread(int start, int block);
 	int calc_pixel(complex<long double> c);
 	void update_pixel(complex<long double> c, int i);
 	void color(unsigned char * pixels);
@@ -65,15 +67,39 @@ Mandelbrot::~Mandelbrot(){
 	delete [] iterations;
 }
 
-void Mandelbrot::calculate(int threads, int iterate_limit){
-	max_itrations = iterate_limit;
-	for(long int i = 0; i < pixel_count; ++i){
+
+/* ----------------------------------------------
+ * Calculate regular Mandelbrot set
+ * ----------------------------------------------*/
+
+
+void Mandelbrot::calculate_thread(int start, int block){
+	for(long int i = start; i < start + block; ++i){
 		int x = i % width;
 		int y = i / width;
 		iterations[i] = calc_pixel(corner + complex<long double>(step * x, - step * y));
 	} 
 }
 
+
+/* Iterate over pixels */
+void Mandelbrot::calculate(int th_count, int iterate_limit){
+	max_itrations = iterate_limit;
+	vector<thread> threads;
+
+	int block = (int) (pixel_count / th_count);
+
+	for (int i = 0; i < th_count; ++i){
+		threads.push_back(thread(&Mandelbrot::calculate_thread, this, i * block, i - 1 == th_count ? pixel_count - i * block : block));
+	}
+
+	for (int i = 0; i < th_count; ++i){
+		threads[i].join();
+	}
+
+}
+
+/* Calculate value of a single pixel */
 int Mandelbrot::calc_pixel(complex<long double> c){
 	complex<long double> z(0.0L, 0.0L);
 	int i = 0;
@@ -86,6 +112,7 @@ int Mandelbrot::calc_pixel(complex<long double> c){
     return i;
 }
 
+/* Color the set */
 void Mandelbrot::color(unsigned char * pixels){
 	long int offset = 0;
 	for(int i = 0; i < pixel_count; ++i){
@@ -98,7 +125,7 @@ void Mandelbrot::color(unsigned char * pixels){
 	}
 }
 
-
+/* Prepare the values and save the file */
 void Mandelbrot::save(const char * file_name){
 	unsigned char * pixels = new unsigned char[pixel_count * 3];
 	color(pixels);
@@ -109,7 +136,14 @@ void Mandelbrot::save(const char * file_name){
 
 	outfile.write (header.c_str(), header.size());
 	outfile.write ((char *) pixels, pixel_count * 3);
+	outfile.close();
+	delete [] pixels;
 }
+
+
+/* ----------------------------------------------
+ * Calculate the Buddhabrot
+ * ----------------------------------------------*/
 
 
 void Mandelbrot::calculate_buddha(int threads, int count_points, int iterate_limit_min, int iterate_limit_max){
@@ -190,12 +224,40 @@ void Mandelbrot::save_buddha(const char * file_name){
 	outfile.write ((char *) pixels, pixel_count * 3);
 }
 
-int main(int argc, char ** argv){
 
-	Mandelbrot M(1500, 1500, complex<long double>(-0.5L, 0), 4.0L);
-	M.calculate_buddha(1, 10000000, 10, 10000);
-	M.save_buddha("mandel2.ppm");
-	//M.calculate(1, 40);
-	//M.save("mandel.ppm");
+/* ----------------------------------------------
+ * Parsing arguments and main
+ * ----------------------------------------------*/
+
+
+int * parse_args(int count, char ** args){
+	int * args_parsed = new int[4];
+	if (count < 5) {
+       cerr << "Usage: " << args[0] << "width height iterations threads" << endl;
+       delete [] args_parsed;
+       return NULL;
+    }
+	args_parsed[0] = atoi(args[1]);
+	args_parsed[1] = atoi(args[2]);
+	args_parsed[2] = atoi(args[3]);
+	args_parsed[3] = atoi(args[4]);
+	return args_parsed;
 }
+
+
+int main(int argc, char ** argv){
+	int * args = parse_args(argc, argv);
+	if (args == NULL)
+		return 1;
+
+	Mandelbrot M(args[0], args[1], complex<long double>(-0.5L, 0), 4.0L);
+	//M.calculate_buddha(1, 10000000, 10, 10000);
+	//M.save_buddha("mandel2.ppm");
+	M.calculate(args[3], args[2]);
+	M.save("mandel.ppm");
+
+	delete [] args;
+	return 0;
+}
+
 

@@ -4,7 +4,7 @@ CFLAGS=-c -Wall -std=c++11
 all: mandelbrot
 
 mandelbrot: main.o
-	$(CC) main.o -o mandelbrot
+	$(CC) main.o -lpthread -o mandelbrot
 
 main.o: main.cpp
 	$(CC) $(CFLAGS) main.cpp
@@ -13,5 +13,4 @@ clean:
 	rm *o mandelbrot
 
 run: all
-	./mandelbrot
-	gwenview mandel.ppm
+	time ./mandelbrot 1500 1500 20 5
